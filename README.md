@@ -93,6 +93,9 @@ cd HarukaTrans
 
 pip install pyinstaller
 
+mkdir vad
+curl -O https://raw.githubusercontent.com/snakers4/silero-vad/refs/heads/master/src/silero_vad/data/silero_vad.onnx
+
 .\build.bat
 ```
 
