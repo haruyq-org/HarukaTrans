@@ -1,0 +1,13 @@
+{
+    "BASE_URL": "http://example.com",
+    "STT_ENGINE": "edgestt",
+    "SOURCE_LANG": "ja-JP",
+    "USE_VAD": true,
+    "VAD_THRESHOLD": 0.5,
+    "VAD_THREADS": 1,
+    "USE_TRANSLATE": false,
+    "TRANSLATOR": "google",
+    "API_KEY": "",
+    "TARGET_LANG": "en",
+    "LOG_LEVEL": "INFO"
+}

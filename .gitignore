@@ -1,0 +1,15 @@
+__pycache__/*
+.vscode/*
+.venv/*
+*.build/*
+build/*
+dist/*
+vad/*
+tests/*
+*.pyc
+*.pyo
+*.cfg
+*.spec
+*.xml
+*.log
+configs/config.json
