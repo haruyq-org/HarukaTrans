@@ -6,6 +6,8 @@ import flet as ft
 import asyncio
 import sys
 import os
+import re
+import sounddevice as sd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -42,7 +44,7 @@ def main(page: ft.Page):
     page.window.maximizable = False
     page.theme_mode = ft.ThemeMode.DARK
 
-    stop_event = None        
+    stop_event = None
 
     def refresh_translate_button_and_text():
         translate_btn.icon_color = ft.Colors.GREEN_500 if config.USE_TRANSLATE else ft.Colors.WHITE_54
@@ -163,8 +165,30 @@ def main(page: ft.Page):
         margin=ft.Margin(top=10)
     )
     
-    mic_status = ft.Text("Not Running", color=ft.Colors.BLUE_500, size=16)
-    mic_icon = ft.Icon(ft.Icons.MIC_OFF, color=ft.Colors.BLUE_500, size=20)
+    def get_curr_mic():
+        try:
+            sd._terminate()
+            sd._initialize()
+            device = sd.query_devices(kind="input")
+            name = device["name"].strip().rstrip("\x00")
+            
+            match = re.search(r'\((.+?)\)', name)
+            if match:
+                return match.group(1).strip()
+            
+            return name if name else "Unknown Mic"
+        except Exception:
+            return "Unknown Mic"
+    
+    async def refresh_mic_name():
+        nonlocal current_mic
+        loop = asyncio.get_event_loop()
+        current_mic = await loop.run_in_executor(None, get_curr_mic)
+
+    current_mic = get_curr_mic()
+    
+    mic_status = ft.Text(f"Stopped ({current_mic})", color=ft.Colors.RED_500, size=16)
+    mic_icon = ft.Icon(ft.Icons.MIC_OFF, color=ft.Colors.RED_500, size=20)
 
     def set_mic_indicator(running: bool, status_text: str):
         icon_value = ft.Icons.MIC if running else ft.Icons.MIC_OFF
@@ -202,7 +226,7 @@ def main(page: ft.Page):
         
         start_btn.disabled = True
         stop_btn.disabled = False
-        set_mic_indicator(True, "Running (Listening...)")
+        set_mic_indicator(True, f"Running ({current_mic})")
         text_transcription.value = "Listening..."
         if config.USE_TRANSLATE:
             text_translation.value = "Waiting for translation..."
@@ -215,6 +239,7 @@ def main(page: ft.Page):
         
         # Run STT entirely inside Flet's async loop
         page.run_task(STT_main.run_loop, stop_event, gui_callback)
+        page.run_task(refresh_mic_name)
 
     def stop_clicked(e):
         nonlocal stop_event
@@ -232,8 +257,9 @@ def main(page: ft.Page):
             
         start_btn.disabled = False
         stop_btn.disabled = True
-        set_mic_indicator(False, "Stopped")
+        set_mic_indicator(False, f"Stopped ({current_mic})")
         page.update()
+        page.run_task(refresh_mic_name)
 
     start_btn = ft.FilledButton("Start", bgcolor=ft.Colors.GREEN, color=ft.Colors.WHITE, width=120, height=40, on_click=start_clicked)
     stop_btn = ft.FilledButton("Stop", bgcolor=ft.Colors.RED, color=ft.Colors.WHITE, width=120, height=40, on_click=stop_clicked, disabled=True)
