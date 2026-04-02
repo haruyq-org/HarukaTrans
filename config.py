@@ -5,7 +5,7 @@ class Config:
     __version__: str = "0.1.0"
     
     BASE_URL: str = "http://example.com"
-    STT_ENGINE: str = "edgetts"
+    STT_ENGINE: str = "edgestt"
     SOURCE_LANG: str = "ja-JP"
     USE_VAD: bool = True
     VAD_THRESHOLD: float = 0.5
