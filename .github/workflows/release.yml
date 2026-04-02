@@ -57,7 +57,10 @@ jobs:
       - name: Create release archive
         shell: pwsh
         run: |
-          Compress-Archive -Path "dist/HarukaTrans.exe" -DestinationPath "HarukaTrans.zip" -Force
+          New-Item -ItemType Directory -Force -Path "ReleasePackage" | Out-Null
+          Copy-Item -Path "dist/HarukaTrans.exe" -Destination "ReleasePackage/HarukaTrans.exe" -Force
+          Copy-Item -Path "configs" -Destination "ReleasePackage/configs" -Recurse -Force
+          Compress-Archive -Path "ReleasePackage/*" -DestinationPath "HarukaTrans.zip" -Force
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
