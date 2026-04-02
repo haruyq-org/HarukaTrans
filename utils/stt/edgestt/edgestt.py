@@ -1,13 +1,14 @@
 from utils.logger import Logger
 from utils.stt.base import BaseSTT
 from utils.stt.edgestt.utils import EdgeSTTUtils
+from utils.mic import MicInput
 
 import websockets
 import struct
 import json
 import asyncio
+import contextlib
 import numpy as np
-import sounddevice as sd
 from typing import Callable, Optional
 
 Log = Logger(__name__)
@@ -245,6 +246,16 @@ class EdgeStreamingSTT(BaseSTT):
         self.stop_event = stop_event
         self.lang = lang
         self.stt = None
+        self.mic = None
+        self.receive_task = None
+        self.mic_task = None
+
+    @staticmethod
+    def _log_task_exception(task: asyncio.Task, task_name: str):
+        with contextlib.suppress(asyncio.CancelledError):
+            exc = task.exception()
+            if exc:
+                Log.error(f"{task_name} failed: {exc}", exc_info=exc)
 
     async def start(self):
         def cb(text, final):
@@ -253,28 +264,48 @@ class EdgeStreamingSTT(BaseSTT):
 
         self.stt = EdgeSTT(language=self.lang, on_result=cb)
         await self.stt.connect()
-        asyncio.create_task(self.stt.receive_loop())
-        asyncio.create_task(self._mic_loop())
+        self.receive_task = asyncio.create_task(self.stt.receive_loop())
+        self.receive_task.add_done_callback(
+            lambda t: self._log_task_exception(t, "Edge receive loop")
+        )
+
+        self.mic_task = asyncio.create_task(self._mic_loop())
+        self.mic_task.add_done_callback(
+            lambda t: self._log_task_exception(t, "Edge mic loop")
+        )
 
     async def _mic_loop(self):
-        loop = asyncio.get_running_loop()
+        self.mic = MicInput(rate=16000, chunk=512)
+        await asyncio.to_thread(self.mic.start)
 
-        def callback(indata, frames, time, status):
-            pcm16 = (indata * 32767).astype(np.int16).tobytes()
-            asyncio.run_coroutine_threadsafe(
-                self.stt.send_audio_chunk(pcm16),
-                loop
-            )
-
-        with sd.InputStream(
-            samplerate=16000,
-            channels=1,
-            dtype="float32",
-            callback=callback
-        ):
+        try:
             while not self.stop_event.is_set():
-                await asyncio.sleep(0.1)
+                chunk = await asyncio.to_thread(self.mic.read, 0.05)
+                if chunk is None:
+                    await asyncio.sleep(0)
+                    continue
+
+                pcm16 = (np.clip(chunk, -1.0, 1.0) * 32767).astype(np.int16).tobytes()
+                if not self.stt:
+                    break
+                await self.stt.send_audio_chunk(pcm16)
+        finally:
+            await asyncio.to_thread(self.mic.stop)
+            self.mic = None
 
     async def stop(self):
+        if self.mic_task:
+            self.mic_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.mic_task
+            self.mic_task = None
+
+        if self.receive_task:
+            self.receive_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.receive_task
+            self.receive_task = None
+
         if self.stt:
             await self.stt.close()
+            self.stt = None

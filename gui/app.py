@@ -165,10 +165,11 @@ def main(page: ft.Page):
         margin=ft.Margin(top=10)
     )
     
-    def get_curr_mic():
+    def get_curr_mic(force_refresh: bool = False):
         try:
-            sd._terminate()
-            sd._initialize()
+            if force_refresh:
+                sd._terminate()
+                sd._initialize()
             device = sd.query_devices(kind="input")
             name = device["name"].strip().rstrip("\x00")
             
@@ -178,12 +179,23 @@ def main(page: ft.Page):
             
             return name if name else "Unknown Mic"
         except Exception:
-            return "Unknown Mic"
+            try:
+                sd._initialize()
+                device = sd.query_devices(kind="input")
+                name = device["name"].strip().rstrip("\x00")
+                return name if name else "Unknown Mic"
+            except Exception:
+                return "Unknown Mic"
     
-    async def refresh_mic_name():
+    async def refresh_mic_name(running: bool, force_refresh: bool = False):
         nonlocal current_mic
         loop = asyncio.get_event_loop()
-        current_mic = await loop.run_in_executor(None, get_curr_mic)
+        if force_refresh:
+            await asyncio.sleep(0.3)
+        current_mic = await loop.run_in_executor(None, lambda: get_curr_mic(force_refresh))
+        status = "Running" if running else "Stopped"
+        set_mic_indicator(running, f"{status} ({current_mic})")
+        page.update()
 
     current_mic = get_curr_mic()
     
@@ -239,7 +251,7 @@ def main(page: ft.Page):
         
         # Run STT entirely inside Flet's async loop
         page.run_task(STT_main.run_loop, stop_event, gui_callback)
-        page.run_task(refresh_mic_name)
+        page.run_task(refresh_mic_name, True, False)
 
     def stop_clicked(e):
         nonlocal stop_event
@@ -259,7 +271,7 @@ def main(page: ft.Page):
         stop_btn.disabled = True
         set_mic_indicator(False, f"Stopped ({current_mic})")
         page.update()
-        page.run_task(refresh_mic_name)
+        page.run_task(refresh_mic_name, False, True)
 
     start_btn = ft.FilledButton("Start", bgcolor=ft.Colors.GREEN, color=ft.Colors.WHITE, width=120, height=40, on_click=start_clicked)
     stop_btn = ft.FilledButton("Stop", bgcolor=ft.Colors.RED, color=ft.Colors.WHITE, width=120, height=40, on_click=stop_clicked, disabled=True)

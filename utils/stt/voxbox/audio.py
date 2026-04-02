@@ -2,10 +2,10 @@ from utils.vad import init_vad_model
 from utils.osc import OSC
 from utils.path import resource_path
 from utils.logger import Logger
+from utils.mic import MicInput
 from config import config
 
 import asyncio
-import pyaudio
 import io
 import wave
 import numpy as np
@@ -13,7 +13,6 @@ import threading
 
 Log = Logger(__name__)
 
-FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
 CHUNK_DURATION_MS = 30
@@ -42,13 +41,28 @@ class Audio:
             
         self._stop_event = stop_event
         self._closed = False
-        self.pya = pyaudio.PyAudio()
-        self.stream = self.pya.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK_SIZE)
+        self.mic = MicInput(rate=RATE, chunk=CHUNK_SIZE)
+        self.mic.start()
         
         self.pre_buffer = []
         self.pre_buffer_size = 5
         
         self.osc = OSC()
+
+    @staticmethod
+    def _float32_to_pcm16_bytes(audio_float32: np.ndarray) -> bytes:
+        clipped = np.clip(audio_float32, -1.0, 1.0)
+        return (clipped * 32767).astype(np.int16).tobytes()
+
+    @staticmethod
+    def _build_wav_bytes(chunks: list[bytes]) -> bytes:
+        audio_file = io.BytesIO()
+        with wave.open(audio_file, "wb") as wf:
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(2)
+            wf.setframerate(RATE)
+            wf.writeframes(b"".join(chunks))
+        return audio_file.getvalue()
 
     def listen(self) -> bytes | None:
         try:
@@ -57,20 +71,15 @@ class Audio:
                 buffer = []
 
                 while not self._is_stopped() and len(buffer) < fixed_chunks:
-                    data = self.stream.read(CHUNK_SIZE, exception_on_overflow=False)
-                    buffer.append(data)
+                    chunk = self.mic.read(timeout=0.2)
+                    if chunk is None:
+                        continue
+                    buffer.append(self._float32_to_pcm16_bytes(chunk))
 
                 if not buffer:
                     return None
 
-                audio_file = io.BytesIO()
-                with wave.open(audio_file, 'wb') as wf:
-                    wf.setnchannels(CHANNELS)
-                    wf.setsampwidth(self.pya.get_sample_size(FORMAT))
-                    wf.setframerate(RATE)
-                    wf.writeframes(b''.join(buffer))
-
-                return audio_file.getvalue()
+                return self._build_wav_bytes(buffer)
 
             is_speech = False
             buffer = []
@@ -80,10 +89,12 @@ class Audio:
             Log.info("Listening for audio...")
 
             while not self._is_stopped():
-                data = self.stream.read(CHUNK_SIZE, exception_on_overflow=False)
+                chunk = self.mic.read(timeout=0.2)
+                if chunk is None:
+                    continue
                 
-                audio_int16 = np.frombuffer(data, np.int16)
-                audio_float32 = audio_int16.astype(np.float32) / 32768.0
+                audio_float32 = np.asarray(chunk, dtype=np.float32)
+                data = self._float32_to_pcm16_bytes(audio_float32)
                 
                 audio_chunk = np.expand_dims(audio_float32, axis=0)
                 input_x = np.concatenate([self._vad_context, audio_chunk], axis=1)
@@ -113,13 +124,7 @@ class Audio:
                         silence_count += 1
                         
                         if silence_count > silence_threshold:
-                            audio_file = io.BytesIO()
-                            with wave.open(audio_file, 'wb') as wf:
-                                wf.setnchannels(CHANNELS)
-                                wf.setsampwidth(self.pya.get_sample_size(FORMAT))
-                                wf.setframerate(RATE)
-                                wf.writeframes(b''.join(buffer))
-                            
+                            wav_data = self._build_wav_bytes(buffer)
                             is_speech = False
                             buffer.clear()
                             self.pre_buffer.clear()
@@ -128,7 +133,7 @@ class Audio:
                             self.osc.send_typing(False)
                             Log.debug("Speech ended.")
                             
-                            return audio_file.getvalue()
+                            return wav_data
                     else:
                         self.pre_buffer.append(data)
                         if len(self.pre_buffer) > self.pre_buffer_size:
@@ -153,8 +158,6 @@ class Audio:
         self._closed = True
 
         try:
-            if self.stream.is_active():
-                self.stream.stop_stream()
-            self.stream.close()
+            self.mic.stop()
         finally:
-            self.pya.terminate()
+            pass

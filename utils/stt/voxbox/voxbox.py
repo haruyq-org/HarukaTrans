@@ -1,7 +1,7 @@
 from utils.logger import Logger
-from utils.audio import Audio
 from utils.stt.base import BaseSTT
 from config import config
+from .audio import Audio
 
 import aiohttp
 import asyncio
