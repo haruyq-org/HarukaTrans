@@ -47,7 +47,7 @@ def Logger(name: str | None = None) -> logging.Logger:
     handler.setFormatter(ColorFormatter(FORMAT, "%H:%M:%S"))
     logger.addHandler(handler)
     
-    file_handler = logging.FileHandler(LOG_PATH)
+    file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
     file_handler.setFormatter(logging.Formatter(FORMAT, "%H:%M:%S"))
     logger.addHandler(file_handler)
 
