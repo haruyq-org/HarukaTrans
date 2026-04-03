@@ -60,11 +60,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path "ReleasePackage" | Out-Null
           Copy-Item -Path "dist/HarukaTrans.exe" -Destination "ReleasePackage/HarukaTrans.exe" -Force
           Copy-Item -Path "configs" -Destination "ReleasePackage/configs" -Recurse -Force
-          Compress-Archive -Path "ReleasePackage/*" -DestinationPath "HarukaTrans.zip" -Force
+          $archiveName = "HarukaTrans-${{ env.RELEASE_VERSION }}.zip"
+          "ARCHIVE_NAME=$archiveName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Compress-Archive -Path "ReleasePackage/*" -DestinationPath $archiveName -Force
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_VERSION }}
           name: HarukaTrans ${{ env.RELEASE_VERSION }}
-          files: HarukaTrans.zip
+          files: ${{ env.ARCHIVE_NAME }}
