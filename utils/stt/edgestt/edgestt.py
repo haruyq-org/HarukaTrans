@@ -55,6 +55,7 @@ class EdgeSTT:
         self._audio_active = False
         self._restart_pending = False
         self._running = False
+        self._planned_close_reason = None
         self._loop = None
     
     async def connect(self):
@@ -63,6 +64,7 @@ class EdgeSTT:
         self._stream_id = 1
         self._bytes_sent = 0
         self._running = True
+        self._planned_close_reason = None
         
         gec = EdgeSTTUtils.gen_sec_ms_gec()
         
@@ -160,6 +162,7 @@ class EdgeSTT:
  
         if self._stream_id > 20:
             Log.debug("[EdgeSTT] Reinitializing connection after 20 turns...")
+            self._planned_close_reason = "turn_limit"
             await self.close()
             return
  

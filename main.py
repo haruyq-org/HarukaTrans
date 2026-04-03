@@ -49,8 +49,44 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
     state = {
         "trans": init_translator(),
         "stt": None,
-        "stt_restart_required": False,
+        "stt_restart_required": True,
+        "stt_restart_failures": 0,
     }
+
+    def emit_gui(msg_type: str, message: str):
+        if not gui_callback:
+            return
+        try:
+            gui_callback(msg_type, message)
+        except Exception as e:
+            Log.error(f"GUI callback error ({msg_type}): {e}", exc_info=True)
+
+    def stt_has_failed_task():
+        stt = state["stt"]
+        if not stt:
+            return False
+
+        def is_expected_task_end(task_name: str):
+            if task_name != "receive_task":
+                return False
+
+            edge_stt = getattr(stt, "stt", None)
+            reason = getattr(edge_stt, "_planned_close_reason", None)
+            return reason == "turn_limit"
+
+        for task_name in ("task", "receive_task", "mic_task"):
+            task = getattr(stt, task_name, None)
+            if not isinstance(task, asyncio.Task) or not task.done():
+                continue
+
+            if is_expected_task_end(task_name):
+                Log.info(f"STT task ended (planned reconnect): {task_name}")
+                return True
+
+            Log.warning(f"STT task ended unexpectedly: {task_name}")
+            return True
+
+        return False
 
     def on_config_changed(key: str, value: Any):
         if key in ("USE_TRANSLATE", "TRANSLATOR", "API_KEY"):
@@ -67,8 +103,7 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
             return
 
         if not final:
-            if gui_callback:
-                gui_callback("partial", text)
+            emit_gui("partial", text)
             return
 
         await stt_queue.put(text)
@@ -76,17 +111,31 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
     async def restart_stt():
         if state["stt"]:
             await state["stt"].stop()
+            state["stt"] = None
+
         Log.info(f"Starting STT: {config.STT_ENGINE} ({config.SOURCE_LANG})")
         state["stt"] = create_stt(stop_event, on_stt_result)
         await state["stt"].start()
         state["stt_restart_required"] = False
-
-    await restart_stt()
+        state["stt_restart_failures"] = 0
 
     try:
         while not stop_event.is_set():
+            if stt_has_failed_task():
+                state["stt_restart_required"] = True
+
             if state["stt_restart_required"]:
-                await restart_stt()
+                try:
+                    await restart_stt()
+                except Exception as e:
+                    state["stt_restart_failures"] += 1
+                    wait_sec = min(10.0, 0.5 * (2 ** (state["stt_restart_failures"] - 1)))
+                    Log.error(
+                        f"Failed to start STT ({config.STT_ENGINE}): {e}. Retrying in {wait_sec:.1f}s",
+                        exc_info=True,
+                    )
+                    await asyncio.sleep(wait_sec)
+                    continue
 
             try:
                 transcription = await asyncio.wait_for(stt_queue.get(), timeout=0.2)
@@ -95,8 +144,7 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
 
             Log.info(f"Transcription: {transcription}")
 
-            if gui_callback:
-                gui_callback("transcribe", transcription)
+            emit_gui("transcribe", transcription)
 
             translated = None
             if config.USE_TRANSLATE and state["trans"]:
@@ -106,8 +154,7 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
                         config.TARGET_LANG,
                     )
                     Log.info(f"Translation: {translated}")
-                    if gui_callback:
-                        gui_callback("translate", translated)
+                    emit_gui("translate", translated)
                 except Exception as e:
                     Log.error(f"Translation error: {e}")
 
