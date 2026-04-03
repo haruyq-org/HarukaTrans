@@ -2,7 +2,7 @@ import json
 from typing import Callable, Any
 
 class Config:
-    __version__: str = "0.1.0"
+    __version__: str = "0.1.3"
     
     BASE_URL: str = "http://example.com"
     STT_ENGINE: str = "edgestt"
