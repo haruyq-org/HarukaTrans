@@ -56,17 +56,15 @@ class EdgeSTT:
         self._restart_pending = False
         self._running = False
         self._loop = None
-        
-        self.utils = EdgeSTTUtils()
     
     async def connect(self):
-        self._connection_id = self.utils.gen_uuid()
-        self._request_id = self.utils.gen_uuid()
+        self._connection_id = EdgeSTTUtils.gen_uuid()
+        self._request_id = EdgeSTTUtils.gen_uuid()
         self._stream_id = 1
         self._bytes_sent = 0
         self._running = True
         
-        gec = self.utils.gen_sec_ms_gec()
+        gec = EdgeSTTUtils.gen_sec_ms_gec()
         
         url = (
             f"wss://{WSS_HOST}{WSS_PATH}"
@@ -88,7 +86,7 @@ class EdgeSTT:
         Log.info(f"EdgeSTT connection established. language: {self.language}")
         
     async def _on_open(self):
-        await self._send_text(self.utils.create_text_message(
+        await self._send_text(EdgeSTTUtils.create_text_message(
             "speech.config",
             {
                 "context": {
@@ -108,7 +106,7 @@ class EdgeSTT:
             content_type="application/json",
         ))
  
-        await self._send_text(self.utils.create_text_message(
+        await self._send_text(EdgeSTTUtils.create_text_message(
             "speech.context",
             {"audio": {"streams": {"1": None}}},
             request_id=self._request_id,
@@ -157,7 +155,7 @@ class EdgeSTT:
             return
  
         self._restart_pending = True
-        self._request_id = self.utils.gen_uuid()
+        self._request_id = EdgeSTTUtils.gen_uuid()
         self._stream_id += 1
  
         if self._stream_id > 20:
@@ -177,7 +175,7 @@ class EdgeSTT:
             },
         }
  
-        await self._send_text(self.utils.create_text_message(
+        await self._send_text(EdgeSTTUtils.create_text_message(
             "speech.context",
             context_payload,
             content_type="application/json",
@@ -193,11 +191,11 @@ class EdgeSTT:
  
     async def _send_wav_header(self):
         self._audio_active = True
-        msg = self.utils.create_bin_message(
+        msg = EdgeSTTUtils.create_bin_message(
             "audio",
             str(self._stream_id),
             self._request_id,
-            self.utils.create_wav_header(self.sample_rate),
+            EdgeSTTUtils.create_wav_header(self.sample_rate),
             content_type="audio/x-wav",
         )
         await self._ws.send(msg)
@@ -207,7 +205,7 @@ class EdgeSTT:
             return
  
         self._bytes_sent += len(pcm_bytes)
-        msg = self.utils.create_bin_message(
+        msg = EdgeSTTUtils.create_bin_message(
             "audio",
             str(self._stream_id),
             self._request_id,
