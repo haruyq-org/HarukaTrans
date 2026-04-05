@@ -3,7 +3,7 @@ import os
 from typing import Callable, Any
 
 class Config:
-    __version__: str = "0.1.4"
+    __version__: str = "0.1.5"
     
     BASE_URL: str = "http://example.com"
     STT_ENGINE: str = "edgestt"
