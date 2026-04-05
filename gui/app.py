@@ -1,5 +1,6 @@
 ﻿import main as STT_main
 from utils.path import resource_path
+from utils.update import AutoUpdater
 from config import config
 
 import flet as ft
@@ -45,6 +46,11 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
 
     stop_event = None
+    updater = AutoUpdater(config.__version__)
+    update_notice: ft.Container | None = None
+    update_notice_body: ft.Text | None = None
+    update_now_btn: ft.FilledButton | None = None
+    update_later_btn: ft.TextButton | None = None
 
     def refresh_translate_button_and_text():
         translate_btn.icon_color = ft.Colors.GREEN_500 if config.USE_TRANSLATE else ft.Colors.WHITE_54
@@ -233,6 +239,60 @@ def main(page: ft.Page):
             text_translation.value = message
         page.update()
 
+    def hide_update_notice(_=None):
+        if update_notice:
+            update_notice.visible = False
+        page.update()
+
+    async def run_update(version: str):
+        if not update_notice_body or not update_now_btn or not update_later_btn:
+            return
+
+        update_now_btn.disabled = True
+        update_later_btn.disabled = True
+        update_notice_body.value = f"Downloading {version}..."
+        page.update()
+
+        try:
+            ok = await updater.update(version)
+        except Exception as ex:
+            ok = False
+            STT_main.Log.error(f"Update failed: {ex}", exc_info=True)
+
+        if ok and update_notice_body:
+            update_notice_body.value = "Restarting application..."
+            page.update()
+            await asyncio.sleep(0.5)
+            await page.window.close()
+            return
+
+        if update_notice_body and update_now_btn and update_later_btn:
+            update_notice_body.value = "Failed to update."
+            update_now_btn.disabled = False
+            update_later_btn.disabled = False
+        page.update()
+
+    def show_update_notice(version: str):
+        if not update_notice or not update_notice_body or not update_now_btn or not update_later_btn:
+            return
+
+        update_notice_body.value = f"New version {version} is available. Do you want to update now?"
+        update_now_btn.disabled = False
+        update_later_btn.disabled = False
+        update_now_btn.on_click = lambda _: page.run_task(run_update, version)
+        update_notice.visible = True
+        page.update()
+
+    async def check_for_updates():
+        try:
+            latest = await updater.check()
+        except Exception as ex:
+            STT_main.Log.error(f"Update check failed: {ex}", exc_info=True)
+            latest = None
+
+        if latest:
+            show_update_notice(latest)
+
     def start_clicked(e):
         nonlocal stop_event
         
@@ -295,11 +355,51 @@ def main(page: ft.Page):
         spacing=20
     )
 
+    update_notice_body = ft.Text(size=14, selectable=False)
+    update_later_btn = ft.TextButton("Later", on_click=hide_update_notice)
+    update_now_btn = ft.FilledButton("Update Now")
+
+    update_notice = ft.Container(
+        visible=False,
+        alignment=ft.Alignment.BOTTOM_RIGHT,
+        margin=ft.Margin(top=10, right=10),
+        content=ft.Card(
+            elevation=6,
+            content=ft.Container(
+                width=300,
+                padding=10,
+                content=ft.Column(
+                    controls=[
+                        ft.Row(
+                            controls=[
+                                ft.Icon(ft.Icons.SYSTEM_UPDATE, color=ft.Colors.BLUE_300),
+                                ft.Text("Update", weight=ft.FontWeight.W_600),
+                            ],
+                            spacing=8,
+                        ),
+                        update_notice_body,
+                        ft.Row(
+                            controls=[update_later_btn, update_now_btn],
+                            alignment=ft.MainAxisAlignment.END,
+                        ),
+                    ],
+                    tight=True,
+                    spacing=10,
+                ),
+            ),
+        ),
+    )
+
+    app_root = ft.Stack(
+        controls=[app_content, update_notice],
+        expand=True,
+    )
+
     def build_app_view() -> ft.View:
         return ft.View(
             route="/app",
             appbar=app_appbar,
-            controls=[app_content]
+            controls=[app_root]
         )
 
     def save_settings(e):
@@ -478,6 +578,7 @@ def main(page: ft.Page):
     page.on_view_pop = view_pop
     refresh_source_lang_dropdown()
     asyncio.create_task(page.push_route("/app"))
+    page.run_task(check_for_updates)
 
 if __name__ == '__main__':
     ft.run(main)
