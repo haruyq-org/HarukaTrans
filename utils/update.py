@@ -6,7 +6,8 @@ import re
 import subprocess
 import sys
 import tempfile
-import time
+import zipfile
+import shutil
 from typing import Any
 
 Log = Logger(__name__)
@@ -22,7 +23,7 @@ class AutoUpdater:
         
         if os.path.exists(self.archive_path):
             try:
-                os.remove(self.archive_path)
+                os.removedirs(os.path.dirname(self.archive_path))
             except Exception:
                 pass
 
@@ -136,8 +137,6 @@ class AutoUpdater:
 
         old_exe = app_exe + ".old"
         
-        import zipfile
-        import shutil
         work_dir = os.path.join(tempfile.gettempdir(), "HarukaTrans_update_work")
         if os.path.exists(work_dir):
             shutil.rmtree(work_dir, ignore_errors=True)
