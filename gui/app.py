@@ -1,4 +1,4 @@
-﻿import main as STT_main
+import main as STT_main
 from utils.path import resource_path
 from utils.update import AutoUpdater
 from config import config
@@ -254,22 +254,21 @@ def main(page: ft.Page):
         page.update()
 
         try:
-            ok = await updater.update(version)
+            exe_path = await updater.update(version)
         except Exception as ex:
-            ok = False
+            exe_path = None
             STT_main.Log.error(f"Update failed: {ex}", exc_info=True)
 
-        if ok and update_notice_body:
+        if exe_path:
             update_notice_body.value = "Restarting application..."
             page.update()
-            await asyncio.sleep(0.5)
-            await page.window.close()
+            await page.window.destroy()
+            await updater.restart()
             return
 
-        if update_notice_body and update_now_btn and update_later_btn:
-            update_notice_body.value = "Failed to update."
-            update_now_btn.disabled = False
-            update_later_btn.disabled = False
+        update_notice_body.value = "Failed to update."
+        update_now_btn.disabled = False
+        update_later_btn.disabled = False
         page.update()
 
     def show_update_notice(version: str):

@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Any
 
 Log = Logger(__name__)
@@ -20,7 +21,27 @@ class AutoUpdater:
         self.latest_page_url: str | None = None
         
         if os.path.exists(self.archive_path):
-            os.remove(self.archive_path)
+            try:
+                os.remove(self.archive_path)
+            except Exception:
+                pass
+
+        def cleanup_old():
+            if not getattr(sys, "frozen", False): return
+            old_exe = sys.executable + ".old"
+            import time
+            for _ in range(10):
+                if os.path.exists(old_exe):
+                    try:
+                        os.remove(old_exe)
+                        break
+                    except Exception:
+                        time.sleep(1)
+                else:
+                    break
+
+        import threading
+        threading.Thread(target=cleanup_old, daemon=True).start()
 
     @staticmethod
     def _normalize_version(value: str) -> tuple[int, ...]:
@@ -101,67 +122,101 @@ class AutoUpdater:
                     Log.error(f"Download failed: {resp.status}")
         return False
 
-    def _build_updater_bat(self, app_exe: str, archive_path: str, version: str) -> str:
-        app_dir = os.path.dirname(app_exe)
-        work_dir = os.path.join(tempfile.gettempdir(), "HarukaTrans_update_work")
-        script_path = os.path.join(tempfile.gettempdir(), "HarukaTrans_apply_update.bat")
-
-        lines = [
-            "@echo off",
-            "setlocal",
-            f'set "APP_EXE={app_exe}"',
-            f'set "APP_DIR={app_dir}"',
-            f'set "ZIP_PATH={archive_path}"',
-            f'set "WORK_DIR={work_dir}"',
-            "timeout /t 2 /nobreak >nul",
-            "if exist \"%WORK_DIR%\" rmdir /s /q \"%WORK_DIR%\"",
-            "mkdir \"%WORK_DIR%\"",
-            "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '%ZIP_PATH%' -DestinationPath '%WORK_DIR%' -Force\"",
-            "if errorlevel 1 goto fail",
-            "set \"NEW_EXE=\"",
-            "for /f \"delims=\" %%I in ('dir /b /s \"%WORK_DIR%\\HarukaTrans.exe\"') do set \"NEW_EXE=%%I\"",
-            "if defined NEW_EXE (",
-            "  copy /y \"%NEW_EXE%\" \"%APP_EXE%\" >nul",
-            ") else (",
-            "  xcopy \"%WORK_DIR%\\*\" \"%APP_DIR%\\\" /e /i /y >nul",
-            ")",
-            "if errorlevel 1 goto fail",
-            "start \"\" \"%APP_EXE%\"",
-            "exit /b 0",
-            ":fail",
-            "start \"\" \"%APP_EXE%\"",
-            "exit /b 1",
-        ]
-
-        with open(script_path, "w", encoding="utf-8", newline="\r\n") as f:
-            f.write("\r\n".join(lines))
-
-        Log.info(f"Prepared updater script for {version}: {script_path}")
-        return script_path
-
-    def apply_update_and_restart(self, version: str) -> bool:
+    def apply_update(self) -> str | None:
         if not getattr(sys, "frozen", False):
             Log.error("Auto replace is only available in packaged executable mode.")
-            return False
+            return None
 
         app_exe = os.path.abspath(sys.executable)
+        app_dir = os.path.dirname(app_exe)
         archive_path = os.path.abspath(self.archive_path)
         if not os.path.exists(archive_path):
             Log.error("Downloaded archive not found.")
-            return False
+            return None
 
-        script_path = self._build_updater_bat(app_exe, archive_path, version)
-        subprocess.Popen(
-            ["cmd", "/c", script_path],
-            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-            close_fds=True,
-        )
-        return True
+        old_exe = app_exe + ".old"
         
-    async def update(self, version: str):
+        import zipfile
+        import shutil
+        work_dir = os.path.join(tempfile.gettempdir(), "HarukaTrans_update_work")
+        if os.path.exists(work_dir):
+            shutil.rmtree(work_dir, ignore_errors=True)
+        os.makedirs(work_dir, exist_ok=True)
+        
+        Log.info("Extracting update...")
+        try:
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                zip_ref.extractall(work_dir)
+        except Exception as e:
+            Log.error(f"Failed to extract update: {e}")
+            return None
+            
+        new_exe = None
+        for root, dirs, files in os.walk(work_dir):
+            for f in files:
+                if f.lower() == "harukatrans.exe":
+                    new_exe = os.path.join(root, f)
+                    break
+            if new_exe:
+                break
+                
+        if not new_exe:
+            Log.error("Could not find HarukaTrans.exe in the update archive.")
+            return None
+            
+        new_app_dir = os.path.dirname(new_exe)
+
+        if os.path.exists(old_exe):
+            try:
+                os.remove(old_exe)
+            except Exception:
+                pass
+                
+        try:
+            os.rename(app_exe, old_exe)
+        except Exception as e:
+            Log.error(f"Failed to rename current executable: {e}")
+            return None
+            
+        try:
+            def copytree_overwrite(src, dst):
+                for item in os.listdir(src):
+                    s = os.path.join(src, item)
+                    d = os.path.join(dst, item)
+                    if os.path.isdir(s):
+                        if not os.path.exists(d):
+                            os.makedirs(d)
+                        copytree_overwrite(s, d)
+                    else:
+                        shutil.copy2(s, d)
+            
+            copytree_overwrite(new_app_dir, app_dir)
+        except Exception as e:
+            Log.error(f"Failed to copy new files: {e}")
+            try:
+                os.rename(old_exe, app_exe)
+            except Exception:
+                pass
+            return None
+            
+        Log.info("Update ready. Restart required.")
+        return app_exe
+        
+    async def update(self, version: str) -> str | None:
         downloaded = await self.download(version)
         if not downloaded:
+            return None
+        return self.apply_update()
+    
+    async def restart(self):
+        if not getattr(sys, "frozen", False):
+            Log.error("Auto restart is only available in packaged executable mode.")
             return False
-        return self.apply_update_and_restart(version)
-        
-        
+
+        app_exe = os.path.abspath(sys.executable)
+        try:
+            subprocess.Popen([app_exe], close_fds=True)
+            return True
+        except Exception as e:
+            Log.error(f"Failed to restart application: {e}")
+            return False
