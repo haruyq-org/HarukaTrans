@@ -426,138 +426,249 @@ def main(page: ft.Page):
         page.update()
 
     # Settings
+    def section_header(icon: ft.Icon, title: str, badge: ft.Control | None = None):
+        row_controls = [
+            ft.Container(
+                content=icon,
+                width=32, height=32,
+                border_radius=6,
+                bgcolor=ft.Colors.BLUE_900,
+                alignment=ft.Alignment.CENTER,
+            ),
+            ft.Column(
+                controls=[
+                    ft.Text(title, size=15, weight=ft.FontWeight.W_500),
+                ],
+                spacing=1,
+                tight=True,
+            ),
+        ]
+        if badge:
+            row_controls.append(
+                ft.Container(content=badge, expand=True, alignment=ft.Alignment.CENTER_RIGHT)
+            )
+        return ft.Container(
+            content=ft.Row(controls=row_controls, spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.Padding(left=16, right=16, top=12, bottom=12),
+            border=ft.Border(bottom=ft.BorderSide(1, ft.Colors.WHITE_12)),
+        )
+
+    def setting_row(label: str, hint: str, control: ft.Control):
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text(label, size=13, weight=ft.FontWeight.W_500),
+                            ft.Text(hint, size=11, color=ft.Colors.WHITE_54),
+                        ],
+                        spacing=2,
+                        tight=True,
+                        expand=True,
+                    ),
+                    control,
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding(left=16, right=16, top=12, bottom=12),
+        )
+
+    def settings_card(*rows: ft.Control):
+        return ft.Container(
+            content=ft.Column(controls=list(rows), spacing=0, tight=True),
+            margin=ft.Margin(bottom=12)
+        )
+
+    DROPDOWN_STYLE = dict(
+        border_color=ft.Colors.WHITE_24,
+        width=200,
+        text_size=13,
+    )
+
+    TEXTFIELD_STYLE = dict(
+        border_color=ft.Colors.WHITE_24,
+        width=260,
+        text_size=13,
+        border_radius=8,
+    )
+
     stt_engine = ft.Dropdown(
-        label="STT Engine",
+        label=None,
         options=[
             ft.dropdown.Option("voxbox", "VoxBox"),
             ft.dropdown.Option("edgestt", "EdgeSTT"),
         ],
         value=config.STT_ENGINE,
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
         on_select=save_settings,
+        **DROPDOWN_STYLE,
     )
 
     base_url = ft.TextField(
-        label="VoxBox Base URL",
+        hint_text="http://localhost:8080",
         value=config.BASE_URL,
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
         on_change=save_settings,
+        **TEXTFIELD_STYLE,
     )
-    
+
     use_vad = ft.Dropdown(
-        label="Use VAD",
-        options=[ft.dropdown.Option(True, "Enabled"), ft.dropdown.Option(False, "Disabled")],
-        value=config.USE_VAD,
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
+        label=None,
+        options=[
+            ft.dropdown.Option("true", "Enabled"),
+            ft.dropdown.Option("false", "Disabled"),
+        ],
+        value="true" if config.USE_VAD else "false",
         on_select=save_settings,
+        **DROPDOWN_STYLE,
     )
-    
+
     vad_threashold = ft.TextField(
-        label="VAD Threshold",
+        hint_text="0.5",
         value=str(config.VAD_THRESHOLD),
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
+        width=100,
+        text_align=ft.TextAlign.RIGHT,
+        text_size=13,
+        border_color=ft.Colors.WHITE_24,
+        border_radius=8,
         on_change=save_settings,
     )
-    
+
     vad_threads = ft.TextField(
-        label="VAD Threads",
+        hint_text="4",
         value=str(config.VAD_THREADS),
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
+        width=100,
+        text_align=ft.TextAlign.RIGHT,
+        text_size=13,
+        border_color=ft.Colors.WHITE_24,
+        border_radius=8,
         on_change=save_settings,
     )
-    
+
     translator = ft.Dropdown(
-        label="Translator",
+        label=None,
         options=[
             ft.dropdown.Option("google", "Google Translate"),
             ft.dropdown.Option("deepl", "DeepL"),
             ft.dropdown.Option("gemini", "Gemini"),
         ],
         value=config.TRANSLATOR,
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
         on_select=save_settings,
-    )
-    
-    api_key = ft.TextField(
-        label="Translator API Key",
-        value=config.API_KEY,
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
-        password=True,
-        on_change=save_settings,
-    )
-    
-    log_level = ft.Dropdown(
-        label="Log Level",
-        options=[
-            ft.dropdown.Option("DEBUG"),
-            ft.dropdown.Option("INFO"),
-            ft.dropdown.Option("WARNING"),
-            ft.dropdown.Option("ERROR"),
-            ft.dropdown.Option("CRITICAL"),
-        ],
-        value=config.LOG_LEVEL,
-        width=400,
-        border_color=ft.Colors.WHITE_54,
-        margin=ft.Margin(top=10),
-        on_select=save_settings,
-    )
-    
-    left_column = ft.Column(
-        controls=[
-            stt_engine,
-            base_url,
-            use_vad,
-            vad_threashold,
-            vad_threads,
-        ],
-        spacing=20,
+        **DROPDOWN_STYLE,
     )
 
-    right_column = ft.Column(
-        controls=[
-            translator,
-            api_key,
-            log_level,
-        ],
-        spacing=20,
+    api_key = ft.TextField(
+        hint_text="Enter API Key",
+        value=config.API_KEY,
+        password=True,
+        can_reveal_password=True,
+        on_change=save_settings,
+        **TEXTFIELD_STYLE,
     )
-    
-    settings_content = ft.Row(
-        controls=[
-            ft.Container(left_column, width=420),
-            ft.Container(right_column, width=420),
-        ],
-        alignment=ft.MainAxisAlignment.START,
-        vertical_alignment=ft.CrossAxisAlignment.START,
-        spacing=40,
+
+    log_level = ft.Dropdown(
+        label=None,
+        options=[ft.dropdown.Option(l) for l in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]],
+        value=config.LOG_LEVEL,
+        on_select=save_settings,
+        **DROPDOWN_STYLE,
     )
 
     def build_settings_view() -> ft.View:
+        content = ft.Column(
+            controls=[
+                settings_card(
+                    section_header(
+                        ft.Icon(ft.Icons.MIC, size=16, color=ft.Colors.WHITE_54),
+                        "Speech to Text",
+                    ),
+                    setting_row("STT Engine", "Vox-Box uses local, EdgeSTT uses MS Cloud", stt_engine),
+                    ft.Container(
+                        content=setting_row("VoxBox Base URL", "VoxBox API endpoint", base_url),
+                        visible=config.STT_ENGINE == "voxbox",
+                        ref=ft.Ref(),
+                    ),
+                ),
+                settings_card(
+                    section_header(
+                        ft.Icon(ft.Icons.GRAPHIC_EQ, size=16, color=ft.Colors.WHITE_54),
+                        "Voice Activity Detection",
+                    ),
+                    setting_row("Use VAD", "Available only when using Vox-Box", use_vad),
+                    ft.Container(
+                        content=ft.Row(
+                            controls=[
+                                ft.Container(
+                                    content=setting_row(
+                                        "Threshold",
+                                        "Sensitivity: 0.0 (high) - 1.0 (low)",
+                                        vad_threashold,
+                                    ),
+                                    expand=True,
+                                    border=ft.Border(right=ft.BorderSide(1, ft.Colors.WHITE_12)),
+                                ),
+                                ft.Container(
+                                    content=setting_row(
+                                        "Threads",
+                                        "Number of threads used for processing",
+                                        vad_threads,
+                                    ),
+                                    expand=True,
+                                ),
+                            ],
+                            spacing=0,
+                        ),
+                    ),
+                ),
+                settings_card(
+                    section_header(
+                        ft.Icon(ft.Icons.TRANSLATE, size=16, color=ft.Colors.WHITE_54),
+                        "Translation",
+                    ),
+                    setting_row(
+                        "Translation Provider",
+                        "Google is free. DeepL and Gemini require an API key",
+                        translator,
+                    ),
+                    setting_row(
+                        "API Key",
+                        "Required when using DeepL or Gemini",
+                        api_key,
+                    ),
+                ),
+                settings_card(
+                    section_header(
+                        ft.Icon(ft.Icons.SETTINGS, size=16, color=ft.Colors.WHITE_54),
+                        "System",
+                    ),
+                    setting_row(
+                        "Log Level",
+                        "INFO is recommended normally. Change to DEBUG when issues occur",
+                        log_level,
+                    ),
+                ),
+            ],
+            spacing=0,
+            scroll=ft.ScrollMode.AUTO,
+        )
+
         return ft.View(
             route="/settings",
             appbar=ft.AppBar(
                 title=ft.Text("Settings"),
                 leading=ft.IconButton(
                     ft.Icons.ARROW_BACK,
-                    on_click=lambda _: asyncio.create_task(page.push_route("/app"))
+                    on_click=lambda _: asyncio.create_task(page.push_route("/app")),
                 ),
-                bgcolor=ft.Colors.BLUE_900
+                bgcolor=ft.Colors.BLUE_900,
             ),
-            controls=[settings_content]
+            controls=[
+                ft.Container(
+                    content=content,
+                    padding=ft.Padding(left=24, right=24, top=20, bottom=20),
+                    expand=True,
+                )
+            ],
+            scroll=ft.ScrollMode.AUTO,
         )
 
     def route_change(e: ft.RouteChangeEvent):
