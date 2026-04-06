@@ -2,6 +2,7 @@ import main as STT_main
 from utils.path import resource_path
 from utils.update import AutoUpdater
 from config import config
+from version import __version__
 
 import flet as ft
 import asyncio
@@ -46,7 +47,7 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
 
     stop_event = None
-    updater = AutoUpdater(config.__version__)
+    updater = AutoUpdater(__version__)
     update_notice: ft.Container | None = None
     update_notice_body: ft.Text | None = None
     update_now_btn: ft.FilledButton | None = None
@@ -82,7 +83,7 @@ def main(page: ft.Page):
                     ft.TextStyle(size=22)
                 ),
                 ft.TextSpan(
-                    f"  {config.__version__}",
+                    f"  {__version__}",
                     ft.TextStyle(size=12, color=ft.Colors.WHITE_54)
                 ),
             ]
