@@ -1,4 +1,3 @@
-from utils.vad import init_vad_model
 from utils.osc import OSC
 from utils.path import resource_path
 from utils.logger import Logger
@@ -22,7 +21,6 @@ class Audio:
     def __init__(self, stop_event: threading.Event | None = None) -> None:
         self.model = None
         if config.USE_VAD:
-            init_vad_model()
             import onnxruntime
             session_options = onnxruntime.SessionOptions()
             session_options.intra_op_num_threads = max(1, int(config.VAD_THREADS))

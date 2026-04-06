@@ -2,6 +2,7 @@ from utils.osc import OSC
 from utils.translation import AITranslation, DeepLTranslation, GoogleTranslation
 from utils.logger import Logger
 from utils.stt.factory import create_stt
+from utils.vad import init_vad_model
 from config import config
 
 import asyncio
@@ -184,6 +185,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("--nogui", action="store_true")
     args = parser.parse_args()
+    
+    if config.USE_VAD:
+        init_vad_model()
 
     if not args.nogui:
         from gui.app import main
