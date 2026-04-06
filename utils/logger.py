@@ -48,7 +48,7 @@ def Logger(name: str | None = None) -> logging.Logger:
     logger.addHandler(handler)
     
     file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
-    file_handler.setFormatter(logging.Formatter(FORMAT, "%H:%M:%S"))
+    file_handler.setFormatter(logging.Formatter(FORMAT, "%Y-%m-%d %H:%M:%S"))
     logger.addHandler(file_handler)
 
     logger.propagate = False
