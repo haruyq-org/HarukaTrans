@@ -1,5 +1,7 @@
 # Haruka Trans(criber / lator)
 
+[English](./README-EN.md)
+
 Haruka Transは、VRChat向けに開発されたリアルタイム文字起こし・翻訳アプリです。  
 このアプリでは、様々な言語間で円滑なコミュニケーションを可能にします。
 
