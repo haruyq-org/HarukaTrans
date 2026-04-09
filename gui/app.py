@@ -148,15 +148,74 @@ def main(page: ft.Page):
         margin=ft.Margin(top=20)
     )
     
-    text_transcription = ft.Text("Transcription will appear here...", size=18, selectable=True)
-    text_translation = ft.Text("Translation will appear here...", size=18, selectable=True)
+    async def handle_transcription_submit(e):
+        text = text_transcription.value.strip()
+        if not text or text in ("Transcription will appear here...", "Listening...", "Running..."):
+            return
 
-    def create_textarea(text_control: ft.Text):
+        set_mic_indicator(False, "Manual Input")
+        
+        if config.USE_TRANSLATE:
+            text_translation.value = "Translating..."
+            page.update()
+            
+            translator = STT_main.init_translator()
+            if translator:
+                try:
+                    translated = await translator.translate_async(text, config.TARGET_LANG)
+                    text_translation.value = translated
+                except Exception as ex:
+                    text_translation.value = f"Error: {ex}"
+                    STT_main.Log.error(f"Translation error: {ex}")
+            else:
+                 text_translation.value = "(Translation error - check logs)"
+        else:
+            text_translation.value = "(Translation is disabled)"
+            translated = None
+            
+        page.update()
+        
+        from utils.osc import OSC
+        osc = OSC()
+        message = translated if (config.USE_TRANSLATE and translated) else text
+        
+        if len(message) >= 144:
+            messages = [message[i : i + 144] for i in range(0, len(message), 144)]
+        else:
+            messages = [message]
+            
+        for msg in messages:
+            osc.send_chatbox(msg)
+            wait = max(1.4, min(len(msg) * 0.1, 8.0))
+            await asyncio.sleep(wait)
+
+    text_transcription = ft.TextField(
+        value="Transcription will appear here...", 
+        text_size=18, 
+        multiline=True, 
+        min_lines=8, 
+        max_lines=8, 
+        border=ft.InputBorder.NONE, 
+        expand=True,
+        shift_enter=True,
+        on_submit=lambda e: page.run_task(handle_transcription_submit)
+    )
+    text_translation = ft.TextField(
+        value="Translation will appear here...", 
+        text_size=18, 
+        multiline=True, 
+        min_lines=8, 
+        max_lines=8, 
+        border=ft.InputBorder.NONE, 
+        expand=True
+    )
+
+    def create_textarea(text_control: ft.Control):
         return ft.Container(
             content=text_control,
             border=ft.Border.all(1, ft.Colors.WHITE_54),
             border_radius=8,
-            padding=20,
+            padding=10,
             width=400,
             height=250,
             alignment=ft.Alignment(-1.0, -1.0)
