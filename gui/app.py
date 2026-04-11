@@ -1,4 +1,5 @@
 import main as STT_main
+from utils.osc import OSC
 from utils.path import resource_path
 from utils.update import AutoUpdater
 from config import config
@@ -165,15 +166,12 @@ def main(page: ft.Page):
                 except Exception as ex:
                     text_translation.value = f"Error: {ex}"
                     STT_main.Log.error(f"Translation error: {ex}")
-            else:
-                 text_translation.value = "(Translation error)"
         else:
             text_translation.value = "(Translation is disabled)"
             translated = None
             
         page.update()
         
-        from utils.osc import OSC
         osc = OSC()
         message = translated if (config.USE_TRANSLATE and translated) else text
         
