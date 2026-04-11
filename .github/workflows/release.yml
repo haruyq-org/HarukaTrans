@@ -1,6 +1,8 @@
 name: Release
-
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       version:
@@ -14,12 +16,19 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate version format
+      - name: Set version (tag push)
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Set version (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: |
           $version = "${{ github.event.inputs.version }}"
