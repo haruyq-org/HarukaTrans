@@ -10,6 +10,14 @@ Haruka Trans is a real-time transcription and translation application specifical
 2. Execute `HarukaTrans.exe` included in the folder.
 3. Once the application window appears, the installation is complete.
 
+## Usage
+
+Check the various settings from the settings button on the right side of the header, and click the Start button to begin voice recognition.
+At this time, if the translation icon located next to the settings button is green, the text will be translated automatically.
+
+Starting from v0.1.8, you can now enter text in the left area.
+Entering a sentence and pressing the Enter key will perform the same action as when voice recognition is used.
+
 ## Microphone
 
 The application uses the microphone currently set as the **Windows Default**. 
