@@ -152,8 +152,6 @@ def main(page: ft.Page):
         text = text_transcription.value.strip()
         if not text or text in ("Transcription will appear here...", "Listening...", "Running..."):
             return
-
-        set_mic_indicator(False, "Manual Input")
         
         if config.USE_TRANSLATE:
             text_translation.value = "Translating..."
@@ -168,7 +166,7 @@ def main(page: ft.Page):
                     text_translation.value = f"Error: {ex}"
                     STT_main.Log.error(f"Translation error: {ex}")
             else:
-                 text_translation.value = "(Translation error - check logs)"
+                 text_translation.value = "(Translation error)"
         else:
             text_translation.value = "(Translation is disabled)"
             translated = None
@@ -191,22 +189,23 @@ def main(page: ft.Page):
 
     text_transcription = ft.TextField(
         value="Transcription will appear here...", 
-        text_size=18, 
+        text_size=17, 
         multiline=True, 
         min_lines=8, 
         max_lines=8, 
         border=ft.InputBorder.NONE, 
         expand=True,
         shift_enter=True,
-        on_submit=lambda e: page.run_task(handle_transcription_submit)
+        on_submit=lambda e: page.run_task(handle_transcription_submit, e)
     )
     text_translation = ft.TextField(
         value="Translation will appear here...", 
-        text_size=18, 
-        multiline=True, 
-        min_lines=8, 
-        max_lines=8, 
-        border=ft.InputBorder.NONE, 
+        text_size=17,
+        read_only=True,
+        multiline=True,
+        min_lines=8,
+        max_lines=8,
+        border=ft.InputBorder.NONE,
         expand=True
     )
 
