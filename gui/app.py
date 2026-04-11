@@ -638,11 +638,7 @@ def main(page: ft.Page):
                         "Speech to Text",
                     ),
                     setting_row("STT Engine", "Vox-Box uses local, EdgeSTT uses MS Cloud", stt_engine),
-                    ft.Container(
-                        content=setting_row("VoxBox Base URL", "VoxBox API endpoint", base_url),
-                        visible=config.STT_ENGINE == "voxbox",
-                        ref=ft.Ref(),
-                    ),
+                    setting_row("Base URL", "Vox-Box API endpoint (e.g http://localhost:8080)", base_url),
                 ),
                 settings_card(
                     section_header(
