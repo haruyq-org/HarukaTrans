@@ -4,11 +4,13 @@ from utils.logger import Logger
 from utils.mic import MicInput
 from config import config
 
+import onnxruntime
 import asyncio
 import io
 import wave
 import numpy as np
 import threading
+import time
 
 Log = Logger(__name__)
 
@@ -20,22 +22,22 @@ CHUNK_SIZE = 512
 class Audio:
     def __init__(self, stop_event: threading.Event | None = None) -> None:
         self.model = None
-        if config.USE_VAD:
-            import onnxruntime
-            session_options = onnxruntime.SessionOptions()
-            session_options.intra_op_num_threads = max(1, int(config.VAD_THREADS))
-            session_options.inter_op_num_threads = 1
-            session_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
-            session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        
+        self._vad_state = np.zeros((2, 1, 128), dtype=np.float32)
+        self._vad_context = np.zeros((1, 64), dtype=np.float32)
+        self._vad_sr = np.array(16000, dtype=np.int64)
+        
+        session_options = onnxruntime.SessionOptions()
+        session_options.intra_op_num_threads = max(1, int(config.VAD_THREADS))
+        session_options.inter_op_num_threads = 1
+        session_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
+        session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-            self.model = onnxruntime.InferenceSession(
-                resource_path("vad/silero_vad.onnx"),
-                sess_options=session_options,
-                providers=["CPUExecutionProvider"],
-            )
-            self._vad_state = np.zeros((2, 1, 128), dtype=np.float32)
-            self._vad_context = np.zeros((1, 64), dtype=np.float32)
-            self._vad_sr = np.array(16000, dtype=np.int64)
+        self.model = onnxruntime.InferenceSession(
+            resource_path("vad/silero_vad.onnx"),
+            sess_options=session_options,
+            providers=["CPUExecutionProvider"],
+        )
             
         self._stop_event = stop_event
         self._closed = False
@@ -44,6 +46,8 @@ class Audio:
         
         self.pre_buffer = []
         self.pre_buffer_size = 5
+        
+        self.speech_start = None
         
         self.osc = OSC()
 
@@ -62,7 +66,7 @@ class Audio:
             wf.writeframes(b"".join(chunks))
         return audio_file.getvalue()
 
-    def listen(self) -> bytes | None:
+    def listen(self) -> tuple[bytes, float] | None:
         try:
             if not config.USE_VAD:
                 fixed_chunks = max(1, int(1000 / CHUNK_DURATION_MS))
@@ -77,7 +81,7 @@ class Audio:
                 if not buffer:
                     return None
 
-                return self._build_wav_bytes(buffer)
+                return self._build_wav_bytes(buffer), 0.0
 
             is_speech = False
             buffer = []
@@ -111,11 +115,15 @@ class Audio:
                     if not is_speech:
                         Log.info("Speech detected.")
                         is_speech = True
+                        
+                        self.speech_start = time.perf_counter()
+                        
                         buffer.extend(self.pre_buffer)
                         self.osc.send_typing(True)
                     
                     buffer.append(data)
                     silence_count = 0
+                    
                 else:
                     if is_speech:
                         buffer.append(data)
@@ -127,23 +135,25 @@ class Audio:
                             buffer.clear()
                             self.pre_buffer.clear()
                             silence_count = 0
-                            
                             self.osc.send_typing(False)
                             Log.debug("Speech ended.")
                             
-                            return wav_data
+                            elapsed = time.perf_counter() - self.speech_start if self.speech_start else 0
+                            self.speech_start = None
+                            
+                            return wav_data, elapsed
                     else:
                         self.pre_buffer.append(data)
                         if len(self.pre_buffer) > self.pre_buffer_size:
                             self.pre_buffer.pop(0)
 
-            return None
+            return None, 0.0
                 
         except Exception as e:
             Log.error(f"audio error: {e}", exc_info=True)
-            return None
+            return None, 0.0
     
-    async def listen_async(self) -> bytes | None:
+    async def listen_async(self) -> tuple[bytes, float] | None:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.listen)
 

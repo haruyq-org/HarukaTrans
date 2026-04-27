@@ -47,13 +47,13 @@ class VoxBoxSTT(BaseSTT):
 
     async def _loop(self):
         while not self.stop_event.is_set():
-            audio_data = await self.audio.listen_async()
+            audio_data, elapsed = await self.audio.listen_async()
             if not audio_data:
                 continue
 
             text = await self.vb.transcribe(audio_data)
             if text:
-                self.emit_result(text, True)
+                self.emit_result(text, True, elapsed)
 
     async def start(self):
         self.task = asyncio.create_task(self._loop())
