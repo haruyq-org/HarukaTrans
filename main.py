@@ -99,12 +99,19 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
 
     config.add_observer(on_config_changed)
 
-    async def on_stt_result(text: str, final: bool):
+    async def on_stt_result(text: str, final: bool, elapsed: float = 0.0): # on_result
         if not text.strip():
             return
 
         if not final:
             emit_gui("partial", text)
+            return
+
+        Log.debug(f"STT elapsed: {elapsed:.2f}sec")
+
+        # ハルシネーション対策になるかも？
+        if config.STT_ENGINE == "voxbox" and elapsed <= 0.15:
+            Log.debug(f"Ignoring: {text} ({elapsed:.2f}sec)")
             return
 
         await stt_queue.put(text)
