@@ -10,6 +10,7 @@ import argparse
 import os
 import sys
 import contextlib
+from langdetect import detect, LangDetectException
 from typing import Any
 
 Log = Logger(__name__)
@@ -157,11 +158,23 @@ async def run_loop(stop_event: asyncio.Event, gui_callback=None):
             translated = None
             if config.USE_TRANSLATE and state["trans"]:
                 try:
-                    translated = await state["trans"].translate_async(
-                        transcription,
-                        config.TARGET_LANG,
-                    )
-                    Log.info(f"Translation: {translated}")
+                    try: # 無駄なAPIリクエストが減るかも
+                        detected_lang = detect(transcription)
+                        Log.debug(f"Detected language: {detected_lang}")
+                        
+                        if detected_lang == config.TARGET_LANG:
+                            Log.debug("Detected language matches target, skipping translation.")
+                            translated = transcription
+                    except LangDetectException as e:
+                        Log.warning(f"Language detection failed: {e}. Proceeding with translation.")
+                    
+                    if not translated:
+                        translated = await state["trans"].translate_async(
+                            transcription,
+                            config.TARGET_LANG,
+                        )
+                        Log.info(f"Translation: {translated}")
+                        
                     emit_gui("translate", translated)
                 except Exception as e:
                     Log.error(f"Translation error: {e}")
