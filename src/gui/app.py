@@ -211,25 +211,17 @@ def main(page: ft.Page):
 
         update_now_btn.disabled = True
         update_later_btn.disabled = True
-        update_notice_body.value = f"Downloading {version}..."
+        update_notice_body.value = f"Updating to {version}..."
         page.update()
 
-        try:
-            exe_path = await updater.update(version)
-        except Exception as ex:
-            exe_path = None
-            STT_main.Log.error(f"Update failed: {ex}", exc_info=True)
+        started = await updater.update(page)
 
-        if exe_path:
-            update_notice_body.value = "Restarting application..."
-            page.update()
-            await page.window.destroy()
-            await updater.restart()
-            return
-
-        update_notice_body.value = "Failed to update."
-        update_now_btn.disabled = False
-        update_later_btn.disabled = False
+        if not started:
+            update_notice_body.value = "Failed to update."
+            update_now_btn.disabled = False
+            update_later_btn.disabled = False
+        else:
+            update_notice_body.value = "Update started. The app will restart soon."
         page.update()
 
     def show_update_notice(version: str):
