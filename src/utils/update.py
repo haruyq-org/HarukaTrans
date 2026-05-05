@@ -56,7 +56,6 @@ class AutoUpdater:
                     curr_ver = version.parse(str(self.curr_version))
 
                     if latest_ver > curr_ver:
-                        Log.info(f"New version available: {latest_ver}")
                         assets = data.get("assets", [])
                         return assets[0]["browser_download_url"] if assets else None
                     
