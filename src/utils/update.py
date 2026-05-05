@@ -18,13 +18,13 @@ TEMP_DIR = resource_path("temp", no_meipass=True)
 class AutoUpdater:
     def __init__(self, curr_version: str):
         self.curr_version = curr_version
-        # self.latest_url = "https://api.github.com/repos/haruyq-org/HarukaTrans/releases/latest"
-        self.latest_url = "http://localhost:8000/release.json"
+        self.latest_url = "https://api.github.com/repos/haruyq-org/HarukaTrans/releases/latest"
+        # self.latest_url = "http://localhost:8000/release.json"
 
         def cleanup_temp():
             if not getattr(sys, "frozen", False): return
             if os.path.exists(TEMP_DIR):
-                shutil.rmtree(TEMP_DIR, ignore_errors=True)
+                os.removedirs(TEMP_DIR)
 
         def cleanup_old():
             if not getattr(sys, "frozen", False): return
