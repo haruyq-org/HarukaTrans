@@ -5,9 +5,9 @@ import aiohttp
 import os
 import subprocess
 import sys
-import shutil
 import threading
 import asyncio
+import urllib.request as request
 from flet import Page
 from packaging import version
 
@@ -20,6 +20,17 @@ class AutoUpdater:
         self.curr_version = curr_version
         self.latest_url = "https://api.github.com/repos/haruyq-org/HarukaTrans/releases/latest"
         # self.latest_url = "http://localhost:8000/release.json"
+        
+        def get_updater():
+            if os.path.exists(resource_path("updater.exe", no_meipass=True)):
+                return resource_path("updater.exe", no_meipass=True)
+            req = request.Request("https://github.com/haruyq-org/HarukaTrans/releases/download/v0.2.1/updater.exe")
+            with request.urlopen(req, timeout=15) as resp:
+                if resp.status == 200:
+                    with open(resource_path("updater.exe", no_meipass=True), 'wb') as f:
+                        f.write(resp.read())
+                else:
+                    Log.error(f"Failed to download updater.exe (HTTP {resp.status})")
 
         def cleanup_temp():
             if not getattr(sys, "frozen", False): return
@@ -40,8 +51,12 @@ class AutoUpdater:
                 else:
                     break
 
+        threading.Thread(target=get_updater, daemon=True).start()
         threading.Thread(target=cleanup_old, daemon=True).start()
         threading.Thread(target=cleanup_temp, daemon=True).start()
+
+    def _normalize_version(self, value: str) -> str:
+        return value.strip().lstrip("v")
 
     async def check(self):
         async with aiohttp.ClientSession() as session:
@@ -52,14 +67,21 @@ class AutoUpdater:
                         return None
                     
                     data = await resp.json()
-                    latest_ver = version.parse(data["tag_name"])
-                    curr_ver = version.parse(str(self.curr_version))
+                    tag_name = self._normalize_version(str(data.get("tag_name", "")))
+                    curr_name = self._normalize_version(str(self.curr_version))
+                    if not tag_name or not curr_name:
+                        Log.error("Invalid version data for update check.")
+                        return None
 
-                    if latest_ver > curr_ver:
-                        assets = data.get("assets", [])
-                        return assets[0]["browser_download_url"] if assets else None
-                    
-                    return None
+                    latest_ver = version.parse(tag_name)
+                    curr_ver = version.parse(curr_name)
+
+                    if latest_ver <= curr_ver:
+                        return None
+
+                    Log.info(f"New version available: {latest_ver} (current: {curr_ver})")
+                    assets = data.get("assets", [])
+                    return assets[0]["browser_download_url"] if assets else None
             except Exception as e:
                 Log.error(f"Update check error: {e}")
                 return None
