@@ -75,11 +75,15 @@ class AutoUpdater:
 
                     latest_ver = version.parse(tag_name)
                     curr_ver = version.parse(curr_name)
+                    
+                    Log.info(f"Current version: {curr_ver}, Latest version: {latest_ver}")
 
                     if latest_ver <= curr_ver:
+                        Log.info("No update available.")
                         return None
+                    
+                    Log.info(f"New version {latest_ver} is available.")
 
-                    Log.info(f"New version available: {latest_ver} (current: {curr_ver})")
                     assets = data.get("assets", [])
                     return assets[0]["browser_download_url"] if assets else None
             except Exception as e:

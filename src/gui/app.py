@@ -237,11 +237,13 @@ def main(page: ft.Page):
 
     async def check_for_updates():
         try:
-            await updater.check()
+            latest = await updater.check()
         except Exception as ex:
             STT_main.Log.error(f"Update check failed: {ex}", exc_info=True)
+            latest = None
 
-        show_update_notice()
+        if latest:
+            show_update_notice()
 
     def start_clicked(e):
         nonlocal stop_event
