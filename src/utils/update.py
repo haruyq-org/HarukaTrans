@@ -8,6 +8,7 @@ import sys
 import threading
 import asyncio
 import urllib.request as request
+import shutil
 from flet import Page
 from packaging import version
 
@@ -35,7 +36,11 @@ class AutoUpdater:
         def cleanup_temp():
             if not getattr(sys, "frozen", False): return
             if os.path.exists(TEMP_DIR):
-                os.removedirs(TEMP_DIR)
+                try:
+                    shutil.rmtree(TEMP_DIR, ignore_errors=True)
+                    os.removedirs(TEMP_DIR)
+                except Exception:
+                    pass
 
         def cleanup_old():
             if not getattr(sys, "frozen", False): return
