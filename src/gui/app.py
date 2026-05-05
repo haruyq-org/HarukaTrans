@@ -205,13 +205,13 @@ def main(page: ft.Page):
             update_notice.visible = False
         page.update()
 
-    async def run_update(version: str):
+    async def run_update():
         if not update_notice_body or not update_now_btn or not update_later_btn:
             return
 
         update_now_btn.disabled = True
         update_later_btn.disabled = True
-        update_notice_body.value = f"Updating to {version}..."
+        update_notice_body.value = f"Updating..."
         page.update()
 
         started = await updater.update(page)
@@ -224,26 +224,24 @@ def main(page: ft.Page):
             update_notice_body.value = "Update started. The app will restart soon."
         page.update()
 
-    def show_update_notice(version: str):
+    def show_update_notice():
         if not update_notice or not update_notice_body or not update_now_btn or not update_later_btn:
             return
 
-        update_notice_body.value = f"New version {version} is available. Do you want to update now?"
+        update_notice_body.value = "New version is available. Do you want to update now?"
         update_now_btn.disabled = False
         update_later_btn.disabled = False
-        update_now_btn.on_click = lambda _: page.run_task(run_update, version)
+        update_now_btn.on_click = lambda _: page.run_task(run_update)
         update_notice.visible = True
         page.update()
 
     async def check_for_updates():
         try:
-            latest = await updater.check()
+            await updater.check()
         except Exception as ex:
             STT_main.Log.error(f"Update check failed: {ex}", exc_info=True)
-            latest = None
 
-        if latest:
-            show_update_notice(latest)
+        show_update_notice()
 
     def start_clicked(e):
         nonlocal stop_event
