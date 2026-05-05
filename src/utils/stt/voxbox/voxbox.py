@@ -1,6 +1,6 @@
-from utils.logger import Logger
-from utils.stt.base import BaseSTT
-from config import config
+from src.utils.logger import Logger
+from src.utils.stt.base import BaseSTT
+from src.config import config
 from .audio import Audio
 
 import aiohttp

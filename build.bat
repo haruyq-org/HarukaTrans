@@ -10,7 +10,7 @@
  --add-data "vad/silero_vad.onnx;vad" ^
  --add-data "assets/icon.ico;assets" ^
  --exclude-module rich ^
- main.py
+ src/main.py
 
 echo.
 echo Build complete.

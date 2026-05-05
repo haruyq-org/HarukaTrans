@@ -1,8 +1,8 @@
-from utils.osc import OSC
-from utils.path import resource_path
-from utils.logger import Logger
-from utils.mic import MicInput
-from config import config
+from src.utils.osc import OSC
+from src.utils.path import resource_path
+from src.utils.logger import Logger
+from src.utils.mic import MicInput
+from src.config import config
 
 import onnxruntime
 import asyncio

@@ -1,5 +1,5 @@
-from utils.path import resource_path
-from config import config
+from src.utils.path import resource_path
+from src.config import config
 
 import logging
 import sys

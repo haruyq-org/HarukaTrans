@@ -1,5 +1,5 @@
-from utils.path import resource_path
-from utils.logger import Logger
+from src.utils.path import resource_path
+from src.utils.logger import Logger
 
 import urllib.request
 import os

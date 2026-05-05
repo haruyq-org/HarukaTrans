@@ -1,9 +1,9 @@
-import main as STT_main
-from utils.osc import OSC
-from utils.path import resource_path
-from utils.update import AutoUpdater
-from config import config
-from version import __version__
+import src.main as STT_main
+from src.utils.osc import OSC
+from src.utils.path import resource_path
+from src.utils.update import AutoUpdater
+from src.config import config
+from src.version import __version__
 
 import flet as ft
 import asyncio

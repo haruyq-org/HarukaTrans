@@ -1,7 +1,7 @@
-from utils.logger import Logger
-from utils.stt.base import BaseSTT
-from utils.stt.edgestt.utils import EdgeSTTUtils
-from utils.mic import MicInput
+from src.utils.logger import Logger
+from src.utils.stt.base import BaseSTT
+from src.utils.stt.edgestt.utils import EdgeSTTUtils
+from src.utils.mic import MicInput
 
 import websockets
 import struct
